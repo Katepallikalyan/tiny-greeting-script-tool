@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -9,6 +8,13 @@ import { supabase } from "@/integrations/supabase/client";
 
 const USER_ID_KEY = "merchant_user_id";
 
+const paymentTypes = [
+  { label: "PhonePe", value: "PhonePe" },
+  { label: "GPay", value: "GPay" },
+  { label: "Paytm", value: "Paytm" },
+  { label: "Other", value: "Other" },
+];
+
 const CartPage = () => {
   const navigate = useNavigate();
   const [wallet, setWallet] = useState<{ balance: number; loading: boolean }>({
@@ -18,6 +24,7 @@ const CartPage = () => {
   const [addMoneyOpen, setAddMoneyOpen] = useState(false);
   const [addAmount, setAddAmount] = useState("");
   const [placingOrder, setPlacingOrder] = useState(false);
+  const [paymentType, setPaymentType] = useState("");
 
   // Get merchant user id from localStorage
   const userId = localStorage.getItem(USER_ID_KEY);
@@ -69,18 +76,26 @@ const CartPage = () => {
       toast({ title: "Invalid Amount", description: "Enter a valid amount." });
       return;
     }
+    if (!paymentType) {
+      toast({ title: "Select Payment Type", description: "Choose a payment method to continue." });
+      return;
+    }
     setAddMoneyOpen(false);
-    // Upsert the wallet record
+    // Upsert the wallet record using Supabase RPC (simulate real payment success)
     const { data, error } = await supabase.rpc("add_money_to_wallet", {
       user_id_param: userId,
       amount_param: amt,
     });
     if (!error) {
-      toast({ title: "Success", description: `₹${amt} added to your wallet.` });
+      toast({
+        title: "Success",
+        description: `₹${amt} added to your wallet using ${paymentType}.`,
+      });
       fetchWallet();
       setAddAmount("");
+      setPaymentType("");
     } else {
-      toast({ title: "Failed", description: error.message });
+      toast({ title: "Failed", description: error.message ?? "Could not add money." });
     }
   };
 
@@ -126,13 +141,30 @@ const CartPage = () => {
         ((item.price_per_ton ?? item.price ?? "0")).toString().replace(/[^0-9.]/g, "")
       ),
     }));
-    await supabase.from("order_items").insert(orderItemsData);
+    const { error: itemInsertErr } = await supabase.from("order_items").insert(orderItemsData);
+    if (itemInsertErr) {
+      toast({
+        title: "Order Item Error",
+        description: itemInsertErr.message,
+      });
+      setPlacingOrder(false);
+      return;
+    }
 
     // 3. Deduct wallet balance -- update balance in table
-    await supabase
+    const { error: walletErr } = await supabase
       .from("wallets")
       .update({ balance: wallet.balance - total })
       .eq("user_id", userId);
+
+    if (walletErr) {
+      toast({
+        title: "Wallet Update Error",
+        description: walletErr.message,
+      });
+      setPlacingOrder(false);
+      return;
+    }
 
     // 4. Clear cart
     localStorage.removeItem("merchant_cart");
@@ -142,7 +174,6 @@ const CartPage = () => {
     });
     setPlacingOrder(false);
     fetchWallet();
-    // Optionally navigate to orders page
     setTimeout(() => {
       navigate("/orders");
     }, 1200);
@@ -182,19 +213,35 @@ const CartPage = () => {
         {/* Add Money Dialog */}
         {addMoneyOpen && (
           <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
-            <div className="bg-white rounded-xl p-6 shadow-lg min-w-[300px] flex flex-col gap-4">
+            <div className="bg-white rounded-xl p-6 shadow-lg min-w-[320px] flex flex-col gap-4">
               <div className="font-semibold text-lg mb-1 flex gap-2 items-center">
                 <Wallet className="w-6 h-6 text-green-700" />
                 Add Money to Wallet
               </div>
-              <Input
-                // FIX: Ensure type is correct string (always "number")
-                type="number"
-                placeholder="Enter amount"
-                value={addAmount}
-                min={1}
-                onChange={e => setAddAmount(e.target.value)}
-              />
+              <div>
+                <Input
+                  type="number"
+                  placeholder="Enter amount"
+                  value={addAmount}
+                  min={1}
+                  onChange={e => setAddAmount(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="block mb-1 font-medium text-sm text-green-900">
+                  Payment Method
+                </label>
+                <select
+                  className="w-full border rounded-md p-2 text-base"
+                  value={paymentType}
+                  onChange={e => setPaymentType(e.target.value)}
+                >
+                  <option value="">Select Payment Type</option>
+                  {paymentTypes.map(pt => (
+                    <option key={pt.value} value={pt.value}>{pt.label}</option>
+                  ))}
+                </select>
+              </div>
               <div className="flex gap-2">
                 <Button className="flex-1 bg-yellow-700" onClick={handleAddMoney}>
                   Add
@@ -256,4 +303,3 @@ const CartPage = () => {
 };
 
 export default CartPage;
-
