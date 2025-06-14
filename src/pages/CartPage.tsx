@@ -77,7 +77,7 @@ const CartPage = () => {
   }, [userId]);
 
   // Get cart items from localStorage
-  const items = JSON.parse(localStorage.getItem("merchant_cart") || "[]");
+  const items: any[] = JSON.parse(localStorage.getItem("merchant_cart") || "[]");
   const total = items.reduce((sum: number, item: any) => {
     // Ensure priceString is always a string type
     const priceString = String(item.price_per_ton ?? item.price ?? "0");
