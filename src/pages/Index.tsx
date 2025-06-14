@@ -8,14 +8,14 @@ import { ShoppingBag } from "lucide-react";
 
 const FAKE_PRODUCTS = [
   {
-    image: "https://images.unsplash.com/photo-1465146344425-f00d5f5c8f07?w=300", // wheat relevant
+    image: "https://images.unsplash.com/photo-1502741338009-cac2772e18bc?w=300", // wheat field - new
     name: "Wheat",
     quantity: "100 kg",
     price: "₹20/kg",
     status: "Available",
   },
   {
-    image: "https://images.unsplash.com/photo-1618160702438-9b02ab6515c9?w=300", // rice relevant
+    image: "https://images.unsplash.com/photo-1465101046530-73398c7f28ca?w=300", // rice paddy - new
     name: "Rice",
     quantity: "200 kg",
     price: "₹30/kg",
@@ -37,7 +37,7 @@ const Index = () => {
         price: crop.price,
         status: "Available",
         quality: crop.quality,
-        video: crop.video ? URL.createObjectURL(crop.video) : undefined,
+        // no video any more
       },
     ]);
   };

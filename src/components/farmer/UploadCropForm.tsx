@@ -3,7 +3,7 @@ import React, { useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Image, Video } from "lucide-react";
+import { Image } from "lucide-react";
 
 interface UploadData {
   name: string;
@@ -11,7 +11,6 @@ interface UploadData {
   quantity: string;
   price: string;
   image: File | null;
-  video: File | null;
 }
 
 interface UploadCropFormProps {
@@ -26,11 +25,9 @@ const UploadCropForm: React.FC<UploadCropFormProps> = ({ existingCrops, onCropAd
     quantity: "",
     price: "",
     image: null,
-    video: null,
   });
   const [errors, setErrors] = useState<string | null>(null);
   const imgRef = useRef<HTMLInputElement>(null);
-  const vidRef = useRef<HTMLInputElement>(null);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, files } = e.target;
@@ -60,10 +57,8 @@ const UploadCropForm: React.FC<UploadCropFormProps> = ({ existingCrops, onCropAd
       quantity: "",
       price: "",
       image: null,
-      video: null,
     });
     if (imgRef.current) imgRef.current.value = "";
-    if (vidRef.current) vidRef.current.value = "";
     setErrors(null);
   };
 
@@ -115,13 +110,6 @@ const UploadCropForm: React.FC<UploadCropFormProps> = ({ existingCrops, onCropAd
           )}
         </div>
       </div>
-      <div>
-        <Label htmlFor="video">Video (optional)</Label>
-        <div className="flex items-center gap-2">
-          <Input id="video" name="video" type="file" accept="video/*" ref={vidRef} onChange={handleChange} className="flex-1" />
-          <Video className="w-5 h-5 text-gray-600" />
-        </div>
-      </div>
       {errors && <div className="text-xs text-red-600">{errors}</div>}
       <Button type="submit" className="w-full bg-green-700 text-white rounded-lg mt-2">Upload Crop</Button>
     </form>
@@ -129,4 +117,3 @@ const UploadCropForm: React.FC<UploadCropFormProps> = ({ existingCrops, onCropAd
 };
 
 export default UploadCropForm;
-
