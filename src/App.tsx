@@ -9,6 +9,7 @@ import FarmBridge from "./pages/FarmBridge";
 import FarmerDashboard from "./pages/FarmerDashboard";
 import OrdersPage from "./pages/OrdersPage";
 import MerchantDashboard from "./pages/MerchantDashboard";
+import CartPage from "./pages/CartPage";
 import React, { useState } from "react";
 import CustomerSupportDialog from "@/components/CustomerSupportDialog";
 
@@ -35,6 +36,7 @@ const App = () => {
             {/* Merchant Dashboard route */}
             <Route path="/merchant/dashboard" element={<MerchantDashboard />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+            <Route path="/cart" element={<CartPage />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
 
