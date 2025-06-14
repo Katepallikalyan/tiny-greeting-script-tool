@@ -1,7 +1,9 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { toast } from "@/components/ui/use-toast";
 
 const roles = [
   { label: "Farmer", value: "farmer" },
@@ -17,23 +19,72 @@ const RoleLogin = () => {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
-  const submitAuth = async (e: React.FormEvent) => {
+  // Clear messages on mode or role change
+  useEffect(() => setMessage(null), [mode, role]);
+
+  const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setMessage(null);
+
     try {
-      // Placeholder: Replace with Supabase auth calls!
-      setTimeout(() => {
-        setLoading(false);
-        setMessage(
-          mode === "login"
-            ? `Logged in as ${role.toUpperCase()} (fake, wire up real Supabase auth next!)`
-            : `Account created for ${role.toUpperCase()} (fake, wire up real Supabase signup next!)`
-        );
-      }, 800);
+      if (mode === "login") {
+        // LOGIN with email & password
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+        if (error) {
+          setMessage(error.message || "Login failed.");
+          toast({
+            title: "Login error",
+            description: error.message,
+            variant: "destructive",
+          });
+        } else {
+          setMessage(`Welcome back, logged in as ${role.toUpperCase()}!`);
+          toast({
+            title: "Logged in!",
+            description: "You are now signed in.",
+          });
+        }
+      } else {
+        // SIGNUP with email & password and attach "role"
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: { role },
+            emailRedirectTo: `${window.location.origin}/FARMBRIDGE`
+          },
+        });
+        if (error) {
+          setMessage(error.message || "Sign up failed.");
+          toast({
+            title: "Signup error",
+            description: error.message,
+            variant: "destructive",
+          });
+        } else {
+          setMessage(
+            `Check your email to confirm your registration as ${role.toUpperCase()}.`
+          );
+          toast({
+            title: "Sign up successful",
+            description:
+              "Please check your inbox and confirm your email to activate your account.",
+          });
+        }
+      }
     } catch (err: any) {
+      setMessage("Unexpected error. Try again.");
+      toast({
+        title: "Error",
+        description: err.message,
+        variant: "destructive",
+      });
+    } finally {
       setLoading(false);
-      setMessage("Something went wrong...");
     }
   };
 
@@ -53,7 +104,7 @@ const RoleLogin = () => {
           </Button>
         ))}
       </div>
-      <form className="space-y-4" onSubmit={submitAuth}>
+      <form className="space-y-4" onSubmit={handleAuth}>
         <Input
           type="email"
           autoComplete="username"
@@ -61,6 +112,7 @@ const RoleLogin = () => {
           required
           value={email}
           onChange={e => setEmail(e.target.value)}
+          disabled={loading}
         />
         <Input
           type="password"
@@ -70,6 +122,7 @@ const RoleLogin = () => {
           required
           value={password}
           onChange={e => setPassword(e.target.value)}
+          disabled={loading}
         />
         <Button className="w-full" disabled={loading}>
           {loading
@@ -92,6 +145,8 @@ const RoleLogin = () => {
           onClick={() =>
             setMode((m) => (m === "login" ? "signup" : "login"))
           }
+          disabled={loading}
+          type="button"
         >
           {mode === "login" ? "Sign up" : "Login"}
         </button>
