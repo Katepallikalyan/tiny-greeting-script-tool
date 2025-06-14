@@ -4,18 +4,18 @@ import UploadCropForm from "@/components/farmer/UploadCropForm";
 import ProductCard from "@/components/farmer/ProductCard";
 import { Button } from "@/components/ui/button";
 import { Link, useNavigate } from "react-router-dom";
-import { ShoppingBag } from "lucide-react";
+import { ShoppingBag, LogIn } from "lucide-react";
 
 const FAKE_PRODUCTS = [
   {
-    image: "https://images.unsplash.com/photo-1502741338009-cac2772e18bc?w=300", // wheat field - new
+    image: "https://images.unsplash.com/photo-1502741338009-cac2772e18bc?w=300",
     name: "Wheat",
     quantity: "100 kg",
     price: "₹20/kg",
     status: "Available",
   },
   {
-    image: "https://images.unsplash.com/photo-1465101046530-73398c7f28ca?w=300", // rice paddy - new
+    image: "https://images.unsplash.com/photo-1465101046530-73398c7f28ca?w=300",
     name: "Rice",
     quantity: "200 kg",
     price: "₹30/kg",
@@ -37,23 +37,32 @@ const Index = () => {
         price: crop.price,
         status: "Available",
         quality: crop.quality,
-        // no video any more
       },
     ]);
   };
 
   return (
     <div className="min-h-screen bg-[#f5f3ea] flex flex-col px-4 pb-20">
-      {/* Header */}
+      {/* Header with Login button */}
       <div className="flex justify-between items-center py-4">
         <h1 className="font-bold text-2xl text-green-900">Farm Home</h1>
-        <Button
-          className="gap-2 bg-yellow-700 text-white rounded-lg"
-          onClick={() => navigate("/orders")}
-        >
-          <ShoppingBag className="w-5 h-5" />
-          View My Orders
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            className="gap-2 text-green-900 bg-white border-green-300 hover:bg-green-50"
+            onClick={() => navigate("/FARMBRIDGE")}
+          >
+            <LogIn className="w-5 h-5" />
+            Login / Sign Up
+          </Button>
+          <Button
+            className="gap-2 bg-yellow-700 text-white rounded-lg"
+            onClick={() => navigate("/orders")}
+          >
+            <ShoppingBag className="w-5 h-5" />
+            View My Orders
+          </Button>
+        </div>
       </div>
 
       {/* Upload Crop Section */}
@@ -84,3 +93,4 @@ const Index = () => {
 };
 
 export default Index;
+
