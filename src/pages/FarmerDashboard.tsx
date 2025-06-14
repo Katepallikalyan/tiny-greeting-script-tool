@@ -1,7 +1,7 @@
-
 import React from "react";
 import { User, Settings, Camera, Bell, Home, ShoppingBag, BarChart2, HelpCircle, MessageSquare, Phone, CloudSun, ArrowRightLeft, Wallet } from "lucide-react";
 import ProductCard from "@/components/farmer/ProductCard";
+import UploadCropForm from "@/components/farmer/UploadCropForm";
 import { Button } from "@/components/ui/button";
 
 const FAKE_PRODUCTS = [
@@ -65,6 +65,23 @@ const FarmerDashboard = () => {
     profileImg: "https://randomuser.me/api/portraits/men/36.jpg",
   };
 
+  const [crops, setCrops] = useState(FAKE_PRODUCTS);
+
+  const handleCropAdded = (crop) => {
+    setCrops(prev => [
+      ...prev,
+      {
+        image: crop.image ? URL.createObjectURL(crop.image) : "", // show uploaded image immediately
+        name: crop.name,
+        quantity: crop.quantity,
+        price: crop.price,
+        status: "Available",
+        quality: crop.quality,
+        video: crop.video ? URL.createObjectURL(crop.video) : undefined
+      }
+    ]);
+  };
+
   return (
     <div className="bg-[#f5f3ea] min-h-screen flex flex-col items-stretch">
       {/* Header */}
@@ -88,13 +105,11 @@ const FarmerDashboard = () => {
       <section className="px-4 mt-1">
         <div className="flex items-center justify-between">
           <h2 className="text-base font-semibold text-green-900 mb-2">{TELUGU.myProducts} / My Products</h2>
-          <Button size="sm" className="bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg flex items-center gap-1 px-3 py-2">
-            <Camera className="w-5 h-5" />
-            <span className="font-medium">{TELUGU.uploadCrop} / Upload Crop</span>
-          </Button>
+          {/* Remove old upload button, moved to inside form */}
         </div>
+        <UploadCropForm existingCrops={crops} onCropAdded={handleCropAdded} />
         <div className="flex gap-2 overflow-x-auto py-2 hide-scrollbar">
-          {FAKE_PRODUCTS.map((p, idx) => (
+          {crops.map((p, idx) => (
             <ProductCard key={idx} product={p} />
           ))}
         </div>

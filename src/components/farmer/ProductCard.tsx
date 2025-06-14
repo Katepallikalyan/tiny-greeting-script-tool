@@ -15,6 +15,8 @@ interface ProductCardProps {
     quantity: string;
     price: string;
     status: string;
+    quality?: string;
+    video?: string;
   };
 }
 
@@ -24,11 +26,15 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
       <img src={product.image} alt={product.name} className="h-24 w-full object-cover" />
       <div className="px-2 py-2 w-full flex flex-col gap-1">
         <div className="font-medium text-green-900 truncate">{product.name}</div>
+        {product.quality && <div className="text-xs text-green-700">Quality: {product.quality}</div>}
         <div className="text-xs text-gray-700">{product.quantity}</div>
         <div className="text-xs text-yellow-800 font-semibold">{product.price}</div>
         <div className={`text-xs px-2 py-1 mt-1 rounded-full font-bold ${statusColors[product.status] || "bg-gray-100 text-gray-700"}`}>
           {product.status}
         </div>
+        {product.video && (
+          <video src={product.video} controls className="mt-1 w-full h-16 rounded-lg border" />
+        )}
       </div>
       {product.status === "Sold" && (
         <span className="absolute right-2 top-2">
