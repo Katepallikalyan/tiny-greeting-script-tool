@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -25,9 +26,26 @@ const CartPage = () => {
   const [addAmount, setAddAmount] = useState("");
   const [placingOrder, setPlacingOrder] = useState(false);
   const [paymentType, setPaymentType] = useState("");
+  const [userId, setUserId] = useState<string | null>(null);
+  const [checkingUser, setCheckingUser] = useState(true);
 
-  // Get merchant user id from localStorage
-  const userId = localStorage.getItem(USER_ID_KEY);
+  // Always get auth user on mount to ensure sync, fallback to localStorage for backward compatibility
+  useEffect(() => {
+    const getUserId = async () => {
+      setCheckingUser(true);
+      const { data, error } = await supabase.auth.getUser();
+      if (data?.user?.id) {
+        setUserId(data.user.id);
+        localStorage.setItem(USER_ID_KEY, data.user.id); // Keep in sync
+      } else {
+        // Fallback to localStorage for old flow
+        const id = localStorage.getItem(USER_ID_KEY);
+        setUserId(id);
+      }
+      setCheckingUser(false);
+    };
+    getUserId();
+  }, []);
 
   // Fetch wallet balance for merchant
   const fetchWallet = async () => {
@@ -40,7 +58,7 @@ const CartPage = () => {
       .from("wallets")
       .select("balance")
       .eq("user_id", userId)
-      .single();
+      .maybeSingle();
     if (!error && data) {
       setWallet({ balance: parseFloat(data.balance ?? 0), loading: false });
     } else {
@@ -49,14 +67,14 @@ const CartPage = () => {
   };
 
   useEffect(() => {
-    fetchWallet();
+    if (userId) {
+      fetchWallet();
+    }
     // eslint-disable-next-line
   }, [userId]);
 
   // Get cart items from localStorage
   const items = JSON.parse(localStorage.getItem("merchant_cart") || "[]");
-
-  // FIX: Always coerce price to string before replace
   const total = items.reduce((sum: number, item: any) => {
     // Ensure priceString is always a string type
     const priceString = String(item.price_per_ton ?? item.price ?? "0");
@@ -139,7 +157,7 @@ const CartPage = () => {
       product_id: item.id,
       quantity: item.quantity_tons ?? item.quantity ?? 1,
       price_at_purchase: Number(
-        ((item.price_per_ton ?? item.price ?? "0")).toString().replace(/[^0-9.]/g, "")
+        String(item.price_per_ton ?? item.price ?? "0").replace(/[^0-9.]/g, "")
       ),
     }));
     const { error: itemInsertErr } = await supabase.from("order_items").insert(orderItemsData);
@@ -179,6 +197,11 @@ const CartPage = () => {
       navigate("/orders");
     }, 1200);
   };
+
+  // Show loading UI until we know login state
+  if (checkingUser) {
+    return <div className="min-h-screen bg-[#f5f3ea] flex flex-col items-center justify-center">Loading...</div>;
+  }
 
   return (
     <div className="min-h-screen bg-[#f5f3ea] px-4 pb-20 flex flex-col">
@@ -232,7 +255,6 @@ const CartPage = () => {
                 <label className="block mb-1 font-medium text-sm text-green-900">
                   Payment Method
                 </label>
-                {/* Ensure select value and options match the string union type */}
                 <select
                   className="w-full border rounded-md p-2 text-base"
                   value={paymentType}
@@ -305,3 +327,4 @@ const CartPage = () => {
 };
 
 export default CartPage;
+
