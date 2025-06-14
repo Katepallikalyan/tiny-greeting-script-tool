@@ -7,6 +7,7 @@ import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import FarmBridge from "./pages/FarmBridge";
 import FarmerDashboard from "./pages/FarmerDashboard";
+import OrdersPage from "./pages/OrdersPage";
 
 const queryClient = new QueryClient();
 
@@ -17,7 +18,10 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
+          {/* Home as Farmer Home/Dashboard */}
           <Route path="/" element={<Index />} />
+          {/* Orders page route */}
+          <Route path="/orders" element={<OrdersPage />} />
           {/* Farm Bridge custom route */}
           <Route path="/FARMBRIDGE" element={<FarmBridge />} />
           {/* Farmer Dashboard route */}
