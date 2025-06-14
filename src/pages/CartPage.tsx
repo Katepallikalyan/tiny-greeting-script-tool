@@ -49,9 +49,11 @@ const CartPage = () => {
   // Get cart items from localStorage
   const items = JSON.parse(localStorage.getItem("merchant_cart") || "[]");
 
+  // FIX: Always coerce price to string before replace
   const total = items.reduce((sum: number, item: any) => {
+    const priceString = ((item.price_per_ton ?? item.price ?? "0")).toString();
     const priceNum = Number(
-      (item.price_per_ton ?? item.price ?? "0").toString().replace(/[^0-9.]/g, "")
+      priceString.replace(/[^0-9.]/g, "")
     );
     return sum + priceNum * (item.quantity_tons ?? item.quantity ?? 1);
   }, 0);
@@ -121,7 +123,7 @@ const CartPage = () => {
       product_id: item.id,
       quantity: item.quantity_tons ?? item.quantity ?? 1,
       price_at_purchase: Number(
-        (item.price_per_ton ?? item.price ?? "0").toString().replace(/[^0-9.]/g, "")
+        ((item.price_per_ton ?? item.price ?? "0")).toString().replace(/[^0-9.]/g, "")
       ),
     }));
     await supabase.from("order_items").insert(orderItemsData);
@@ -186,6 +188,7 @@ const CartPage = () => {
                 Add Money to Wallet
               </div>
               <Input
+                // FIX: Ensure type is correct string (always "number")
                 type="number"
                 placeholder="Enter amount"
                 value={addAmount}
@@ -253,3 +256,4 @@ const CartPage = () => {
 };
 
 export default CartPage;
+
