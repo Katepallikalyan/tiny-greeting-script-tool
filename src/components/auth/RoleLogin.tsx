@@ -46,8 +46,16 @@ const RoleLogin = () => {
             title: "Logged in!",
             description: "You are now signed in.",
           });
-          // TEMP: After login, navigate to demo Farmer Dashboard for review
-          window.location.href = "/farmer/dashboard";
+          // Redirect based on selected role
+          if (role === "farmer") {
+            window.location.href = "/farmer/dashboard";
+          } else if (role === "merchant") {
+            window.location.href = "/merchant/dashboard";
+          } else if (role === "admin") {
+            window.location.href = "/farmer/dashboard";
+          } else {
+            window.location.href = "/";
+          }
         }
       } else {
         // SIGNUP with email & password and attach "role"

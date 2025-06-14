@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -9,6 +8,7 @@ import NotFound from "./pages/NotFound";
 import FarmBridge from "./pages/FarmBridge";
 import FarmerDashboard from "./pages/FarmerDashboard";
 import OrdersPage from "./pages/OrdersPage";
+import MerchantDashboard from "./pages/MerchantDashboard";
 import React, { useState } from "react";
 import CustomerSupportDialog from "@/components/CustomerSupportDialog";
 
@@ -32,6 +32,8 @@ const App = () => {
             <Route path="/FARMBRIDGE" element={<FarmBridge />} />
             {/* Farmer Dashboard route */}
             <Route path="/farmer/dashboard" element={<FarmerDashboard />} />
+            {/* Merchant Dashboard route */}
+            <Route path="/merchant/dashboard" element={<MerchantDashboard />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
@@ -66,4 +68,3 @@ const App = () => {
 };
 
 export default App;
-
