@@ -58,7 +58,8 @@ const CartPage = () => {
 
   // FIX: Always coerce price to string before replace
   const total = items.reduce((sum: number, item: any) => {
-    const priceString = ((item.price_per_ton ?? item.price ?? "0")).toString();
+    // Ensure priceString is always a string type
+    const priceString = String(item.price_per_ton ?? item.price ?? "0");
     const priceNum = Number(
       priceString.replace(/[^0-9.]/g, "")
     );
@@ -231,10 +232,11 @@ const CartPage = () => {
                 <label className="block mb-1 font-medium text-sm text-green-900">
                   Payment Method
                 </label>
+                {/* Ensure select value and options match the string union type */}
                 <select
                   className="w-full border rounded-md p-2 text-base"
                   value={paymentType}
-                  onChange={e => setPaymentType(e.target.value)}
+                  onChange={e => setPaymentType(e.target.value as string)}
                 >
                   <option value="">Select Payment Type</option>
                   {paymentTypes.map(pt => (
