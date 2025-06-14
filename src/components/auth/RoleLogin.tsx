@@ -46,8 +46,8 @@ const RoleLogin = () => {
             title: "Logged in!",
             description: "You are now signed in.",
           });
-          // Force page reload so authenticated content is displayed
-          window.location.reload();
+          // TEMP: After login, navigate to demo Farmer Dashboard for review
+          window.location.href = "/farmer/dashboard";
         }
       } else {
         // SIGNUP with email & password and attach "role"

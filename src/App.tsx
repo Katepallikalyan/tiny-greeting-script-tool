@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import FarmBridge from "./pages/FarmBridge";
+import FarmerDashboard from "./pages/FarmerDashboard";
 
 const queryClient = new QueryClient();
 
@@ -19,6 +20,8 @@ const App = () => (
           <Route path="/" element={<Index />} />
           {/* Farm Bridge custom route */}
           <Route path="/FARMBRIDGE" element={<FarmBridge />} />
+          {/* Farmer Dashboard route */}
+          <Route path="/farmer/dashboard" element={<FarmerDashboard />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
