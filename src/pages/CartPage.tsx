@@ -15,6 +15,8 @@ const paymentTypes = [
   { label: "Other", value: "Other" },
 ];
 
+type PaymentType = (typeof paymentTypes)[number]["value"] | "";
+
 const CartPage = () => {
   const navigate = useNavigate();
   const [wallet, setWallet] = useState<{ balance: number; loading: boolean }>({
@@ -24,7 +26,7 @@ const CartPage = () => {
   const [addMoneyOpen, setAddMoneyOpen] = useState(false);
   const [addAmount, setAddAmount] = useState("");
   const [placingOrder, setPlacingOrder] = useState(false);
-  const [paymentType, setPaymentType] = useState("");
+  const [paymentType, setPaymentType] = useState<PaymentType>("");
   const [userId, setUserId] = useState<string | null>(null);
   const [checkingUser, setCheckingUser] = useState(true);
 
@@ -259,7 +261,7 @@ const CartPage = () => {
                 <select
                   className="w-full border rounded-md p-2 text-base"
                   value={paymentType}
-                  onChange={e => setPaymentType(e.target.value)}
+                  onChange={e => setPaymentType(e.target.value as PaymentType)}
                 >
                   <option value="">Select Payment Type</option>
                   {paymentTypes.map(pt => (
