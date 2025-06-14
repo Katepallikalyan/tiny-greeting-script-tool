@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -33,7 +32,7 @@ const CartPage = () => {
   useEffect(() => {
     const getUserId = async () => {
       setCheckingUser(true);
-      const { data, error } = await supabase.auth.getUser();
+      const { data } = await supabase.auth.getUser();
       if (data?.user?.id) {
         setUserId(data.user.id);
         localStorage.setItem(USER_ID_KEY, data.user.id); // Keep in sync
@@ -60,7 +59,9 @@ const CartPage = () => {
       .eq("user_id", userId)
       .maybeSingle();
     if (!error && data) {
-      setWallet({ balance: parseFloat(data.balance ?? 0), loading: false });
+      // parseFloat always expects string, and data.balance could be number or string or null
+      const parsedBalance = data.balance !== null && data.balance !== undefined ? parseFloat(String(data.balance)) : 0;
+      setWallet({ balance: parsedBalance, loading: false });
     } else {
       setWallet({ balance: 0, loading: false });
     }
@@ -185,7 +186,7 @@ const CartPage = () => {
       return;
     }
 
-    // 4. Clear cart
+    // 4. Clear cart and show success only after all steps succeed
     localStorage.removeItem("merchant_cart");
     toast({
       title: "Order Placed!",
@@ -258,7 +259,7 @@ const CartPage = () => {
                 <select
                   className="w-full border rounded-md p-2 text-base"
                   value={paymentType}
-                  onChange={e => setPaymentType(e.target.value as string)}
+                  onChange={e => setPaymentType(e.target.value)}
                 >
                   <option value="">Select Payment Type</option>
                   {paymentTypes.map(pt => (
@@ -327,4 +328,3 @@ const CartPage = () => {
 };
 
 export default CartPage;
-
