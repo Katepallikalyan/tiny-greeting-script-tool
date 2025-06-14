@@ -67,6 +67,11 @@ const UploadCropForm: React.FC<UploadCropFormProps> = ({ existingCrops, onCropAd
     setErrors(null);
   };
 
+  // New: button to trigger gallery selection
+  const handleGalleryClick = () => {
+    imgRef.current?.click();
+  };
+
   return (
     <form className="bg-white p-4 rounded-xl shadow space-y-3 mt-2" onSubmit={handleSubmit}>
       <div className="flex flex-col gap-2">
@@ -86,10 +91,28 @@ const UploadCropForm: React.FC<UploadCropFormProps> = ({ existingCrops, onCropAd
         <Input id="price" name="price" placeholder="e.g. ₹25/kg" value={form.price} onChange={handleChange} />
       </div>
       <div>
-        <Label htmlFor="image">Image (required)</Label>
-        <div className="flex items-center gap-2">
-          <Input id="image" name="image" type="file" accept="image/*" ref={imgRef} onChange={handleChange} className="flex-1" />
-          <Image className="w-5 h-5 text-gray-600" />
+        <Label htmlFor="image">Image <span className="text-red-600">(required)</span></Label>
+        <div className="flex items-center gap-3 mt-1">
+          <Input
+            id="image"
+            name="image"
+            type="file"
+            accept="image/*"
+            ref={imgRef}
+            onChange={handleChange}
+            className="hidden"
+          />
+          <Button
+            type="button"
+            variant="outline"
+            className="flex items-center gap-2 bg-green-100 hover:bg-green-200 text-green-900 px-3 py-1 rounded"
+            onClick={handleGalleryClick}
+          >
+            <Image className="w-5 h-5" /> Select from Gallery
+          </Button>
+          {form.image && (
+            <span className="text-xs text-green-700 truncate max-w-[110px]">{form.image.name}</span>
+          )}
         </div>
       </div>
       <div>
@@ -106,3 +129,4 @@ const UploadCropForm: React.FC<UploadCropFormProps> = ({ existingCrops, onCropAd
 };
 
 export default UploadCropForm;
+
