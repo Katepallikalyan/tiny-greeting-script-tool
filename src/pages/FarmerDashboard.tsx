@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { User, Settings, Camera, Bell, Home, ShoppingBag, BarChart2, HelpCircle, MessageSquare, Phone, CloudSun, ArrowRightLeft, Wallet } from "lucide-react";
 import ProductCard from "@/components/farmer/ProductCard";
 import UploadCropForm from "@/components/farmer/UploadCropForm";
