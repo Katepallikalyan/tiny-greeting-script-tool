@@ -8,15 +8,15 @@ import { ShoppingBag } from "lucide-react";
 
 const FAKE_PRODUCTS = [
   {
-    image: "https://images.unsplash.com/photo-1461749280684-dccba630e2f6?w=300",
-    name: "Wheat / గోధుమలు",
+    image: "https://images.unsplash.com/photo-1465146344425-f00d5f5c8f07?w=300", // wheat relevant
+    name: "Wheat",
     quantity: "100 kg",
     price: "₹20/kg",
     status: "Available",
   },
   {
-    image: "https://images.unsplash.com/photo-1486312338219-ce68d2c6f44d?w=300",
-    name: "Rice / బియ్యం",
+    image: "https://images.unsplash.com/photo-1618160702438-9b02ab6515c9?w=300", // rice relevant
+    name: "Rice",
     quantity: "200 kg",
     price: "₹30/kg",
     status: "Booked",
