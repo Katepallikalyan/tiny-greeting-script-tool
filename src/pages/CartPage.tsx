@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -13,9 +14,21 @@ const paymentTypes = [
   { label: "GPay", value: "GPay" },
   { label: "Paytm", value: "Paytm" },
   { label: "Other", value: "Other" },
-];
+] as const;
 
 type PaymentType = (typeof paymentTypes)[number]["value"] | "";
+
+interface CartItem {
+  id: string;
+  name: string;
+  image: string;
+  price: string | number;
+  price_per_ton?: string | number;
+  quantity_tons?: number;
+  quantity?: number;
+  unit?: string;
+  farmer_name?: string;
+}
 
 const CartPage = () => {
   const navigate = useNavigate();
@@ -76,9 +89,9 @@ const CartPage = () => {
     // eslint-disable-next-line
   }, [userId]);
 
-  // Get cart items from localStorage
-  const items: any[] = JSON.parse(localStorage.getItem("merchant_cart") || "[]");
-  const total = items.reduce((sum: number, item: any) => {
+  // Get cart items from localStorage with proper typing
+  const items: CartItem[] = JSON.parse(localStorage.getItem("merchant_cart") || "[]");
+  const total = items.reduce((sum: number, item: CartItem) => {
     // Ensure priceString is always a string type
     const priceString = String(item.price_per_ton ?? item.price ?? "0");
     const priceNum = Number(
@@ -155,7 +168,7 @@ const CartPage = () => {
       return;
     }
     // 2. Insert items into order_items table
-    const orderItemsData = items.map((item: any) => ({
+    const orderItemsData = items.map((item: CartItem) => ({
       order_id: order.id,
       product_id: item.id,
       quantity: item.quantity_tons ?? item.quantity ?? 1,
@@ -287,7 +300,7 @@ const CartPage = () => {
         </div>
       ) : (
         <div className="flex flex-col gap-4">
-          {items.map((item: any, idx: number) => (
+          {items.map((item: CartItem, idx: number) => (
             <div
               key={idx}
               className="bg-white rounded-lg p-4 shadow flex flex-col md:flex-row gap-3 items-center md:items-stretch"
