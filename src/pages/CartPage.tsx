@@ -16,7 +16,7 @@ const paymentTypes = [
   { label: "Other", value: "Other" },
 ] as const;
 
-type PaymentType = (typeof paymentTypes)[number]["value"] | "";
+type PaymentType = (typeof paymentTypes)[number]["value"];
 
 interface CartItem {
   id: string;
@@ -39,7 +39,7 @@ const CartPage = () => {
   const [addMoneyOpen, setAddMoneyOpen] = useState(false);
   const [addAmount, setAddAmount] = useState("");
   const [placingOrder, setPlacingOrder] = useState(false);
-  const [paymentType, setPaymentType] = useState<PaymentType>("");
+  const [paymentType, setPaymentType] = useState<PaymentType | "">("");
   const [userId, setUserId] = useState<string | null>(null);
   const [checkingUser, setCheckingUser] = useState(true);
 
@@ -68,16 +68,35 @@ const CartPage = () => {
       return;
     }
     setWallet((w) => ({ ...w, loading: true }));
-    const { data, error } = await supabase
-      .from("wallets")
-      .select("balance")
-      .eq("user_id", userId)
-      .maybeSingle();
-    if (!error && data) {
-      // parseFloat always expects string, and data.balance could be number or string or null
-      const parsedBalance = data.balance !== null && data.balance !== undefined ? parseFloat(String(data.balance)) : 0;
-      setWallet({ balance: parsedBalance, loading: false });
-    } else {
+    
+    try {
+      // First, ensure wallet exists for this user
+      const { data: existingWallet } = await supabase
+        .from("wallets")
+        .select("id, balance")
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      if (!existingWallet) {
+        // Create wallet if it doesn't exist
+        const { data: newWallet, error: createError } = await supabase
+          .from("wallets")
+          .insert({ user_id: userId, balance: 0 })
+          .select("balance")
+          .single();
+        
+        if (!createError && newWallet) {
+          setWallet({ balance: 0, loading: false });
+        } else {
+          console.error("Error creating wallet:", createError);
+          setWallet({ balance: 0, loading: false });
+        }
+      } else {
+        const parsedBalance = existingWallet.balance !== null && existingWallet.balance !== undefined ? parseFloat(String(existingWallet.balance)) : 0;
+        setWallet({ balance: parsedBalance, loading: false });
+      }
+    } catch (error) {
+      console.error("Error fetching wallet:", error);
       setWallet({ balance: 0, loading: false });
     }
   };
@@ -86,7 +105,6 @@ const CartPage = () => {
     if (userId) {
       fetchWallet();
     }
-    // eslint-disable-next-line
   }, [userId]);
 
   // Get cart items from localStorage with proper typing
@@ -115,22 +133,54 @@ const CartPage = () => {
       toast({ title: "Select Payment Type", description: "Choose a payment method to continue." });
       return;
     }
-    setAddMoneyOpen(false);
-    // Upsert the wallet record using Supabase RPC (simulate real payment success)
-    const { data, error } = await supabase.rpc("add_money_to_wallet", {
-      user_id_param: userId,
-      amount_param: amt,
-    });
-    if (!error) {
-      toast({
-        title: "Success",
-        description: `₹${amt} added to your wallet using ${paymentType}.`,
-      });
-      fetchWallet();
-      setAddAmount("");
-      setPaymentType("");
-    } else {
-      toast({ title: "Failed", description: error.message ?? "Could not add money." });
+    
+    try {
+      setAddMoneyOpen(false);
+      
+      // Update wallet balance directly
+      const newBalance = wallet.balance + amt;
+      const { error: updateError } = await supabase
+        .from("wallets")
+        .upsert({ 
+          user_id: userId, 
+          balance: newBalance,
+          updated_at: new Date().toISOString()
+        });
+
+      if (!updateError) {
+        // Add transaction record
+        const { error: transactionError } = await supabase
+          .from("wallet_transactions")
+          .insert({
+            wallet_id: userId, // Using user_id as wallet reference
+            amount: amt,
+            transaction_type: "credit",
+            description: `Added money via ${paymentType}`,
+            status: "completed"
+          });
+
+        if (!transactionError) {
+          toast({
+            title: "Success",
+            description: `₹${amt} added to your wallet using ${paymentType}.`,
+          });
+          fetchWallet();
+          setAddAmount("");
+          setPaymentType("");
+        } else {
+          console.error("Transaction record error:", transactionError);
+          toast({ title: "Success", description: `₹${amt} added to wallet.` });
+          fetchWallet();
+          setAddAmount("");
+          setPaymentType("");
+        }
+      } else {
+        console.error("Wallet update error:", updateError);
+        toast({ title: "Failed", description: "Could not add money to wallet." });
+      }
+    } catch (error) {
+      console.error("Add money error:", error);
+      toast({ title: "Failed", description: "Could not add money to wallet." });
     }
   };
 
@@ -153,65 +203,77 @@ const CartPage = () => {
     }
     setPlacingOrder(true);
 
-    // 1. Insert a new order
-    const { data: order, error: orderErr } = await supabase
-      .from("orders")
-      .insert({ user_id: userId, total_price: total })
-      .select("id")
-      .single();
-    if (orderErr || !order) {
+    try {
+      // 1. Insert a new order
+      const { data: order, error: orderErr } = await supabase
+        .from("orders")
+        .insert({ user_id: userId, total_price: total })
+        .select("id")
+        .single();
+      
+      if (orderErr || !order) {
+        toast({
+          title: "Order Error",
+          description: orderErr?.message ?? "Could not place order.",
+        });
+        setPlacingOrder(false);
+        return;
+      }
+
+      // 2. Insert items into order_items table
+      const orderItemsData = items.map((item: CartItem) => ({
+        order_id: order.id,
+        product_id: item.id,
+        quantity: item.quantity_tons ?? item.quantity ?? 1,
+        price_at_purchase: Number(
+          String(item.price_per_ton ?? item.price ?? "0").replace(/[^0-9.]/g, "")
+        ),
+      }));
+      
+      const { error: itemInsertErr } = await supabase.from("order_items").insert(orderItemsData);
+      if (itemInsertErr) {
+        toast({
+          title: "Order Item Error",
+          description: itemInsertErr.message,
+        });
+        setPlacingOrder(false);
+        return;
+      }
+
+      // 3. Deduct wallet balance
+      const { error: walletErr } = await supabase
+        .from("wallets")
+        .update({ balance: wallet.balance - total })
+        .eq("user_id", userId);
+
+      if (walletErr) {
+        toast({
+          title: "Wallet Update Error",
+          description: walletErr.message,
+        });
+        setPlacingOrder(false);
+        return;
+      }
+
+      // 4. Clear cart and show success
+      localStorage.removeItem("merchant_cart");
+      toast({
+        title: "Order Placed!",
+        description: "Your order has been placed successfully.",
+      });
+      setPlacingOrder(false);
+      fetchWallet();
+      setTimeout(() => {
+        navigate("/orders");
+      }, 1200);
+    } catch (error) {
+      console.error("Order placement error:", error);
       toast({
         title: "Order Error",
-        description: orderErr?.message ?? "Could not place order.",
+        description: "Failed to place order. Please try again.",
       });
       setPlacingOrder(false);
-      return;
     }
-    // 2. Insert items into order_items table
-    const orderItemsData = items.map((item: CartItem) => ({
-      order_id: order.id,
-      product_id: item.id,
-      quantity: item.quantity_tons ?? item.quantity ?? 1,
-      price_at_purchase: Number(
-        String(item.price_per_ton ?? item.price ?? "0").replace(/[^0-9.]/g, "")
-      ),
-    }));
-    const { error: itemInsertErr } = await supabase.from("order_items").insert(orderItemsData);
-    if (itemInsertErr) {
-      toast({
-        title: "Order Item Error",
-        description: itemInsertErr.message,
-      });
-      setPlacingOrder(false);
-      return;
-    }
-
-    // 3. Deduct wallet balance -- update balance in table
-    const { error: walletErr } = await supabase
-      .from("wallets")
-      .update({ balance: wallet.balance - total })
-      .eq("user_id", userId);
-
-    if (walletErr) {
-      toast({
-        title: "Wallet Update Error",
-        description: walletErr.message,
-      });
-      setPlacingOrder(false);
-      return;
-    }
-
-    // 4. Clear cart and show success only after all steps succeed
-    localStorage.removeItem("merchant_cart");
-    toast({
-      title: "Order Placed!",
-      description: "Your order has been placed successfully.",
-    });
-    setPlacingOrder(false);
-    fetchWallet();
-    setTimeout(() => {
-      navigate("/orders");
-    }, 1200);
   };
 
   // Show loading UI until we know login state
@@ -233,6 +295,7 @@ const CartPage = () => {
           Back to Dashboard
         </Button>
       </div>
+      
       {/* Wallet Info */}
       <div className="flex gap-4 items-center mb-4">
         <div className="flex items-center gap-2 bg-white border border-green-200 rounded-lg px-4 py-2">
@@ -250,6 +313,7 @@ const CartPage = () => {
           onClick={() => setAddMoneyOpen(true)}>
           <PlusCircle className="w-5 h-5" /> Add Money
         </Button>
+        
         {/* Add Money Dialog */}
         {addMoneyOpen && (
           <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
@@ -274,7 +338,7 @@ const CartPage = () => {
                 <select
                   className="w-full border rounded-md p-2 text-base"
                   value={paymentType}
-                  onChange={e => setPaymentType(e.target.value as PaymentType)}
+                  onChange={e => setPaymentType(e.target.value as PaymentType | "")}
                 >
                   <option value="">Select Payment Type</option>
                   {paymentTypes.map(pt => (
@@ -294,6 +358,7 @@ const CartPage = () => {
           </div>
         )}
       </div>
+      
       {items.length === 0 ? (
         <div className="text-gray-600 text-center py-20">
           Cart is empty. Go add crops!
