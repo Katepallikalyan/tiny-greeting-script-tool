@@ -19,12 +19,6 @@ export const QuickActionButtons = ({ userRole = 'farmer' }: QuickActionButtonsPr
       action: () => document.getElementById('upload-form')?.scrollIntoView({ behavior: 'smooth' })
     },
     {
-      icon: Wallet,
-      label: "Wallet",
-      color: "bg-yellow-600 hover:bg-yellow-700",
-      action: () => navigate('/earnings')
-    },
-    {
       icon: MessageCircle,
       label: "Support",
       color: "bg-blue-600 hover:bg-blue-700",
@@ -56,7 +50,7 @@ export const QuickActionButtons = ({ userRole = 'farmer' }: QuickActionButtonsPr
   const actions = userRole === 'farmer' ? farmerActions : merchantActions;
 
   return (
-    <div className="grid grid-cols-3 gap-3 p-4 bg-white rounded-xl shadow-sm">
+    <div className={`grid ${userRole === 'farmer' ? 'grid-cols-2' : 'grid-cols-3'} gap-3 p-4 bg-white rounded-xl shadow-sm`}>
       {actions.map((action, index) => (
         <Button
           key={index}

@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { CertificationBadge } from "@/components/ui/certification-badge";
 import { useFarmerCertification } from "@/hooks/useCertifications";
+import { supabase } from "@/integrations/supabase/client";
 
 const FAKE_PRODUCTS = [
   {
@@ -78,18 +79,43 @@ const FarmerDashboard = () => {
 
   const { certification: farmerCertification } = useFarmerCertification(farmer.id);
 
-  const handleCropAdded = (crop) => {
-    setCrops((prev) => [
-      ...prev,
-      {
-        image: crop.image ? URL.createObjectURL(crop.image) : "",
-        name: crop.name,
-        quantity: crop.quantity,
-        price: crop.price,
-        status: "Available",
-        quality: crop.quality,
-      },
-    ]);
+  const handleCropAdded = async (crop) => {
+    // Add to local state for immediate display
+    const newCrop = {
+      image: crop.image ? URL.createObjectURL(crop.image) : "",
+      name: crop.name,
+      quantity: crop.quantity,
+      price: crop.price,
+      status: "Available",
+      quality: crop.quality,
+    };
+    setCrops((prev) => [...prev, newCrop]);
+
+    // Save to database so it appears in merchant dashboard
+    try {
+      const priceValue = parseFloat(crop.price.replace(/[₹\/kg]/g, ''));
+      const quantityValue = parseFloat(crop.quantity.replace(/[kg]/g, ''));
+      
+      const { error } = await supabase
+        .from('products')
+        .insert({
+          name: crop.name,
+          description: crop.quality,
+          price: priceValue,
+          unit: 'kg',
+          quantity_tons: quantityValue / 1000, // Convert kg to tons
+          farmer_id: farmer.id,
+          in_stock: true,
+          organic: crop.quality?.toLowerCase().includes('organic') || false,
+          image: crop.image ? URL.createObjectURL(crop.image) : null
+        });
+
+      if (error) {
+        console.error('Error saving product:', error);
+      }
+    } catch (error) {
+      console.error('Error processing crop data:', error);
+    }
   };
 
   return (
@@ -173,7 +199,7 @@ const FarmerDashboard = () => {
         </div>
       </section>
 
-      {/* Earnings Overview */}
+      {/* Earnings Overview - Removed wallet references */}
       <section className="px-4 mt-3">
         <h2 className="text-base font-semibold text-green-900 mb-2">
           Earnings Overview

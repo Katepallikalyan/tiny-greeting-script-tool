@@ -1,10 +1,10 @@
 
 import React, { useState, useEffect } from "react";
-import { Search, Filter, ShoppingCart, User, Star, Truck, CheckCircle } from "lucide-react";
+import { Search, Filter, ShoppingCart, User, Star, Truck, CheckCircle, Wallet, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { CertificationBadge } from "@/components/ui/certification-badge";
@@ -103,6 +103,7 @@ const MerchantDashboard = () => {
   const [showOrganicOnly, setShowOrganicOnly] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [walletBalance, setWalletBalance] = useState(5000); // Mock wallet balance
 
   useEffect(() => {
     fetchProducts();
@@ -185,6 +186,14 @@ const MerchantDashboard = () => {
     setFilteredProducts(filtered);
   };
 
+  const handleAddMoney = () => {
+    // Mock add money functionality
+    const amount = prompt("Enter amount to add:");
+    if (amount && !isNaN(Number(amount))) {
+      setWalletBalance(prev => prev + Number(amount));
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -209,6 +218,31 @@ const MerchantDashboard = () => {
           <div className="flex items-center justify-between">
             <h1 className="text-2xl font-bold text-gray-900">Farm Bridge Marketplace</h1>
             <div className="flex items-center gap-4">
+              {/* Wallet Section */}
+              <Card className="bg-gradient-to-r from-green-50 to-emerald-50 border-green-200">
+                <CardContent className="p-3">
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2">
+                      <Wallet className="w-5 h-5 text-green-600" />
+                      <div>
+                        <div className="text-sm font-medium text-green-900">
+                          ₹{walletBalance.toLocaleString()}
+                        </div>
+                        <div className="text-xs text-green-600">Wallet Balance</div>
+                      </div>
+                    </div>
+                    <Button 
+                      size="sm" 
+                      onClick={handleAddMoney}
+                      className="bg-green-600 hover:bg-green-700 text-white rounded-full px-3 py-1"
+                    >
+                      <Plus className="w-3 h-3 mr-1" />
+                      Add
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+              
               <Button variant="outline" size="sm">
                 <ShoppingCart className="w-4 h-4 mr-1" />
                 Cart (0)
