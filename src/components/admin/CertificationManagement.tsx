@@ -1,250 +1,231 @@
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
+import { Check, X, Clock, User, Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { toast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
-import { Check, X, Eye, Calendar, User, Package } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { supabase } from "@/integrations/supabase/client";
+import { useCertificationRequests, CertificationRequest } from "@/hooks/useCertifications";
 
-interface CertificationRequest {
-  id: string;
-  farmer_id?: string;
-  product_id?: string;
-  certification_type: "farmer" | "product";
-  certifying_authority: string;
-  validity_period?: string;
-  notes?: string;
-  status: string;
-  created_at: string;
-  farmers?: { name: string };
-  products?: { name: string };
-}
-
-export const CertificationManagement: React.FC = () => {
-  const [requests, setRequests] = useState<CertificationRequest[]>([]);
-  const [loading, setLoading] = useState(true);
+export const CertificationManagement = () => {
+  const { requests, loading, refetch } = useCertificationRequests();
   const [selectedRequest, setSelectedRequest] = useState<CertificationRequest | null>(null);
-  const [adminNotes, setAdminNotes] = useState("");
+  const [notes, setNotes] = useState("");
+  const [processing, setProcessing] = useState(false);
 
-  useEffect(() => {
-    fetchCertificationRequests();
-  }, []);
+  const handleApprove = async (request: CertificationRequest) => {
+    setProcessing(true);
+    const { error } = await supabase
+      .from('certifications')
+      .update({
+        status: 'approved',
+        approved_at: new Date().toISOString(),
+        notes: notes || request.notes
+      })
+      .eq('id', request.id);
 
-  const fetchCertificationRequests = async () => {
-    try {
-      const { data, error } = await supabase
-        .from("certifications")
-        .select(`
-          *,
-          farmers(name),
-          products(name)
-        `)
-        .order("created_at", { ascending: false });
-
-      if (error) {
-        console.error("Error fetching certification requests:", error);
-        toast({
-          title: "Error",
-          description: "Failed to load certification requests.",
-        });
-      } else {
-        setRequests(data || []);
-      }
-    } catch (error) {
-      console.error("Fetch error:", error);
-    } finally {
-      setLoading(false);
+    if (!error) {
+      refetch();
+      setSelectedRequest(null);
+      setNotes("");
     }
+    setProcessing(false);
   };
 
-  const updateCertificationStatus = async (
-    id: string, 
-    status: "approved" | "rejected",
-    notes?: string
-  ) => {
-    try {
-      const { error } = await supabase
-        .from("certifications")
-        .update({
-          status,
-          notes: notes || null,
-          approved_at: status === "approved" ? new Date().toISOString() : null,
-          // approved_by would be set to the current admin user ID in a real app
-        })
-        .eq("id", id);
+  const handleReject = async (request: CertificationRequest) => {
+    setProcessing(true);
+    const { error } = await supabase
+      .from('certifications')
+      .update({
+        status: 'rejected',
+        notes: notes || "Certification request rejected"
+      })
+      .eq('id', request.id);
 
-      if (error) {
-        console.error("Error updating certification:", error);
-        toast({
-          title: "Error",
-          description: "Failed to update certification status.",
-        });
-      } else {
-        toast({
-          title: "Success",
-          description: `Certification ${status} successfully.`,
-        });
-        fetchCertificationRequests();
-        setSelectedRequest(null);
-        setAdminNotes("");
-      }
-    } catch (error) {
-      console.error("Update error:", error);
+    if (!error) {
+      refetch();
+      setSelectedRequest(null);
+      setNotes("");
     }
+    setProcessing(false);
   };
 
-  const getStatusBadge = (status: string) => {
-    const statusConfig = {
-      pending: { color: "bg-yellow-100 text-yellow-800", label: "Pending" },
-      approved: { color: "bg-green-100 text-green-800", label: "Approved" },
-      rejected: { color: "bg-red-100 text-red-800", label: "Rejected" },
-      expired: { color: "bg-gray-100 text-gray-800", label: "Expired" },
-    };
+  if (loading) return <div>Loading certifications...</div>;
 
-    const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.pending;
-    
-    return (
-      <Badge className={config.color}>
-        {config.label}
-      </Badge>
-    );
-  };
-
-  if (loading) {
-    return (
-      <div className="p-6 text-center">
-        <div className="text-gray-500">Loading certification requests...</div>
-      </div>
-    );
-  }
+  const pendingRequests = requests.filter(r => r.status === 'pending');
+  const approvedRequests = requests.filter(r => r.status === 'approved');
 
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold text-green-900 mb-6">Certification Management</h1>
+    <div className="p-6 space-y-6">
+      <h1 className="text-2xl font-bold">Certification Management</h1>
       
-      <div className="space-y-4">
-        {requests.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">
-            No certification requests found.
-          </div>
-        ) : (
-          requests.map((request) => (
-            <div key={request.id} className="bg-white rounded-lg shadow p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-green-100 rounded-full">
-                    {request.certification_type === "farmer" ? (
-                      <User className="h-5 w-5 text-green-600" />
+      {/* Pending Requests */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Clock className="w-5 h-5 text-yellow-600" />
+            Pending Requests ({pendingRequests.length})
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {pendingRequests.map((request) => (
+              <div key={request.id} className="border rounded-lg p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    {request.certification_type === 'farmer' ? (
+                      <User className="w-4 h-4 text-green-600" />
                     ) : (
-                      <Package className="h-5 w-5 text-green-600" />
+                      <Package className="w-4 h-4 text-blue-600" />
                     )}
+                    <span className="font-medium">
+                      {request.certification_type === 'farmer' 
+                        ? request.farmers?.name 
+                        : request.products?.name}
+                    </span>
                   </div>
-                  <div>
-                    <h3 className="font-semibold">
-                      {request.certification_type === "farmer" 
-                        ? `Farmer: ${request.farmers?.name || "Unknown"}` 
-                        : `Product: ${request.products?.name || "Unknown"}`
-                      }
-                    </h3>
-                    <p className="text-sm text-gray-600">
-                      Authority: {request.certifying_authority}
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      Requested: {new Date(request.created_at).toLocaleDateString()}
-                    </p>
-                  </div>
+                  <Badge variant="outline" className="text-yellow-600">
+                    {request.certification_type}
+                  </Badge>
                 </div>
                 
-                <div className="flex items-center gap-2">
-                  {getStatusBadge(request.status)}
-                  
-                  <Dialog>
-                    <DialogTrigger asChild>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setSelectedRequest(request);
-                          setAdminNotes(request.notes || "");
-                        }}
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                    </DialogTrigger>
-                    
-                    <DialogContent className="max-w-md">
-                      <DialogHeader>
-                        <DialogTitle>Certification Request Details</DialogTitle>
-                      </DialogHeader>
-                      
-                      {selectedRequest && (
-                        <div className="space-y-4">
-                          <div>
-                            <h4 className="font-semibold text-sm mb-1">Type</h4>
-                            <p className="capitalize">{selectedRequest.certification_type}</p>
-                          </div>
-                          
-                          <div>
-                            <h4 className="font-semibold text-sm mb-1">Authority</h4>
-                            <p>{selectedRequest.certifying_authority}</p>
-                          </div>
-                          
-                          {selectedRequest.validity_period && (
-                            <div>
-                              <h4 className="font-semibold text-sm mb-1">Validity Period</h4>
-                              <p>{new Date(selectedRequest.validity_period).toLocaleDateString()}</p>
-                            </div>
-                          )}
-                          
-                          <div>
-                            <h4 className="font-semibold text-sm mb-1">Notes</h4>
-                            <Textarea
-                              value={adminNotes}
-                              onChange={(e) => setAdminNotes(e.target.value)}
-                              placeholder="Add certification notes..."
-                              className="min-h-20"
-                            />
-                          </div>
-                          
-                          {selectedRequest.status === "pending" && (
-                            <div className="flex gap-2">
-                              <Button
-                                onClick={() => updateCertificationStatus(
-                                  selectedRequest.id, 
-                                  "approved", 
-                                  adminNotes
-                                )}
-                                className="flex-1 bg-green-600 hover:bg-green-700"
-                              >
-                                <Check className="h-4 w-4 mr-2" />
-                                Approve
-                              </Button>
-                              <Button
-                                onClick={() => updateCertificationStatus(
-                                  selectedRequest.id, 
-                                  "rejected", 
-                                  adminNotes
-                                )}
-                                variant="destructive"
-                                className="flex-1"
-                              >
-                                <X className="h-4 w-4 mr-2" />
-                                Reject
-                              </Button>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </DialogContent>
-                  </Dialog>
+                <div className="text-sm text-gray-600">
+                  <p><strong>Authority:</strong> {request.certifying_authority}</p>
+                  {request.validity_period && (
+                    <p><strong>Valid until:</strong> {new Date(request.validity_period).toLocaleDateString()}</p>
+                  )}
+                  {request.notes && (
+                    <p><strong>Notes:</strong> {request.notes}</p>
+                  )}
+                </div>
+
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      setSelectedRequest(request);
+                      setNotes(request.notes || "");
+                    }}
+                    className="bg-green-600 hover:bg-green-700"
+                  >
+                    <Check className="w-4 h-4 mr-1" />
+                    Approve
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    onClick={() => {
+                      setSelectedRequest(request);
+                      setNotes("");
+                    }}
+                  >
+                    <X className="w-4 h-4 mr-1" />
+                    Reject
+                  </Button>
                 </div>
               </div>
-            </div>
-          ))
-        )}
-      </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Approved Certifications */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Check className="w-5 h-5 text-green-600" />
+            Approved Certifications ({approvedRequests.length})
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-3">
+            {approvedRequests.map((cert) => (
+              <div key={cert.id} className="border rounded-lg p-3 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  {cert.certification_type === 'farmer' ? (
+                    <User className="w-4 h-4 text-green-600" />
+                  ) : (
+                    <Package className="w-4 h-4 text-blue-600" />
+                  )}
+                  <span className="font-medium">
+                    {cert.certification_type === 'farmer' 
+                      ? cert.farmers?.name 
+                      : cert.products?.name}
+                  </span>
+                </div>
+                <Badge className="bg-green-100 text-green-800">
+                  <Check className="w-3 h-3 mr-1" />
+                  Certified
+                </Badge>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Action Modal */}
+      {selectedRequest && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <Card className="w-full max-w-md">
+            <CardHeader>
+              <CardTitle>
+                {selectedRequest.certification_type === 'farmer' ? 'Farmer' : 'Product'} Certification
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <p className="font-medium">
+                  {selectedRequest.certification_type === 'farmer' 
+                    ? selectedRequest.farmers?.name 
+                    : selectedRequest.products?.name}
+                </p>
+                <p className="text-sm text-gray-600">
+                  Authority: {selectedRequest.certifying_authority}
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">Notes</label>
+                <Textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="Add certification notes..."
+                  rows={3}
+                />
+              </div>
+
+              <div className="flex gap-2">
+                <Button
+                  onClick={() => handleApprove(selectedRequest)}
+                  disabled={processing}
+                  className="bg-green-600 hover:bg-green-700"
+                >
+                  <Check className="w-4 h-4 mr-1" />
+                  Approve
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={() => handleReject(selectedRequest)}
+                  disabled={processing}
+                >
+                  <X className="w-4 h-4 mr-1" />
+                  Reject
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setSelectedRequest(null);
+                    setNotes("");
+                  }}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 };

@@ -1,387 +1,316 @@
-import React, { useEffect, useState } from "react";
-import { ShoppingBag, Home, ShoppingCart, Image, RefreshCw, Filter } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+
+import React, { useState, useEffect } from "react";
+import { Search, Filter, ShoppingCart, User, Star, Truck, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { toast } from "@/hooks/use-toast";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { CertificationBadge } from "@/components/ui/certification-badge";
-import { useCertifications } from "@/hooks/useCertifications";
-import { Checkbox } from "@/components/ui/checkbox";
+import { useProductCertification } from "@/hooks/useCertifications";
 
-// Minimal product type
-type Crop = {
+interface Product {
   id: string;
   name: string;
-  image: string;
+  description?: string;
   price: number;
   price_per_ton?: number;
   quantity_tons?: number;
-  unit?: string;
-  farmer_id?: string;
-  farmer_name?: string;
-  description?: string;
+  unit: string;
+  image?: string;
+  organic: boolean;
+  seasonal: boolean;
+  featured: boolean;
+  farmer_id: string;
+  farmers: {
+    id: string;
+    name: string;
+    location: string;
+    rating?: number;
+  };
+}
+
+const ProductCard = ({ product }: { product: Product }) => {
+  const { certification } = useProductCertification(product.id);
+
+  return (
+    <Card className="overflow-hidden hover:shadow-lg transition-shadow">
+      <div className="relative">
+        <img
+          src={product.image || "https://images.unsplash.com/photo-1625246333195-78d9c38ad449?w=300"}
+          alt={product.name}
+          className="w-full h-40 object-cover"
+        />
+        {product.organic && (
+          <Badge className="absolute top-2 left-2 bg-green-100 text-green-800">
+            Organic
+          </Badge>
+        )}
+        {certification && (
+          <div className="absolute top-2 right-2">
+            <CertificationBadge certification={certification} type="product" size="sm" />
+          </div>
+        )}
+      </div>
+      <CardContent className="p-4">
+        <div className="flex justify-between items-start mb-2">
+          <h3 className="font-semibold text-lg">{product.name}</h3>
+          <div className="text-right">
+            <div className="font-bold text-green-700">₹{product.price}/{product.unit}</div>
+            {product.price_per_ton && (
+              <div className="text-sm text-gray-500">₹{product.price_per_ton}/ton</div>
+            )}
+          </div>
+        </div>
+        
+        <p className="text-sm text-gray-600 mb-3 line-clamp-2">
+          {product.description || "Fresh produce from verified farmers"}
+        </p>
+        
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <User className="w-4 h-4 text-gray-500" />
+            <span className="text-sm">{product.farmers.name}</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+            <span className="text-sm">{product.farmers.rating || 4.5}</span>
+          </div>
+        </div>
+        
+        <div className="flex items-center justify-between">
+          <span className="text-sm text-gray-500">
+            <Truck className="w-4 h-4 inline mr-1" />
+            {product.farmers.location}
+          </span>
+          <Button size="sm" className="bg-green-600 hover:bg-green-700">
+            <ShoppingCart className="w-4 h-4 mr-1" />
+            Add to Cart
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
 };
 
 const MerchantDashboard = () => {
-  const navigate = useNavigate();
-  const merchant = {
-    name: "Radha Traders",
-    location: "Hyderabad",
-    profileImg: "https://randomuser.me/api/portraits/women/70.jpg",
-  };
-
-  const [crops, setCrops] = useState<Crop[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [cartCount, setCartCount] = useState(0);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [showFilters, setShowFilters] = useState(false);
   const [showCertifiedOnly, setShowCertifiedOnly] = useState(false);
-  const [showFilterOptions, setShowFilterOptions] = useState(false);
-
-  // Get certifications for all farmers and products
-  const farmerIds = crops.map(crop => crop.farmer_id).filter(Boolean) as string[];
-  const productIds = crops.map(crop => crop.id);
-  const { certifications } = useCertifications(farmerIds, productIds);
-
-  // Update cart count
-  const updateCartCount = () => {
-    try {
-      const currentCart = JSON.parse(localStorage.getItem("merchant_cart") || "[]");
-      setCartCount(currentCart.length);
-    } catch {
-      setCartCount(0);
-    }
-  };
+  const [showOrganicOnly, setShowOrganicOnly] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    updateCartCount();
-    // Listen for storage changes to update cart count
-    const handleStorageChange = () => updateCartCount();
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
+    fetchProducts();
   }, []);
 
   useEffect(() => {
-    fetchCrops();
-  }, []);
+    filterProducts();
+  }, [products, searchTerm, showCertifiedOnly, showOrganicOnly]);
 
-  const fetchCrops = async () => {
-    setLoading(true);
+  const fetchProducts = async () => {
     try {
-      console.log("Fetching crops from database...");
-      
-      // Fetch products with farmer information
-      const { data: products, error } = await supabase
-        .from("products")
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('products')
         .select(`
-          id,
-          name,
-          image,
-          price,
-          price_per_ton,
-          quantity_tons,
-          unit,
-          description,
-          farmer_id,
-          in_stock,
-          farmers!inner(id, name)
+          *,
+          farmers (
+            id,
+            name,
+            location,
+            rating
+          )
         `)
-        .eq("in_stock", true)
-        .order("created_at", { ascending: false });
+        .eq('in_stock', true)
+        .order('created_at', { ascending: false });
 
-      if (error) {
-        console.error("Error fetching products:", error);
-        toast({
-          title: "Error",
-          description: "Failed to load crops. Please try again.",
-        });
-        setCrops([]);
-      } else if (products && products.length > 0) {
-        console.log("Products fetched:", products);
-        const formattedCrops = products.map((p: any) => ({
-          ...p,
-          farmer_name: p.farmers?.name || "Unknown Farmer",
-        }));
-        setCrops(formattedCrops);
-      } else {
-        console.log("No products found in database");
-        setCrops([]);
+      if (error) throw error;
+
+      if (data) {
+        setProducts(data as Product[]);
       }
-    } catch (error) {
-      console.error("Fetch crops error:", error);
-      toast({
-        title: "Error",
-        description: "Failed to load crops. Please check your connection.",
-      });
-      setCrops([]);
+    } catch (err) {
+      console.error('Error fetching products:', err);
+      setError('Failed to load products');
     } finally {
       setLoading(false);
     }
   };
 
-  // Filter crops based on certification status
-  const filteredCrops = showCertifiedOnly 
-    ? crops.filter(crop => {
-        const hasFarmerCertification = certifications.some(
-          cert => cert.farmer_id === crop.farmer_id && cert.certification_type === "farmer"
-        );
-        const hasProductCertification = certifications.some(
-          cert => cert.product_id === crop.id && cert.certification_type === "product"
-        );
-        return hasFarmerCertification || hasProductCertification;
-      })
-    : crops;
+  const filterProducts = async () => {
+    let filtered = products;
 
-  // Helper function to get certifications for display
-  const getFarmerCertification = (farmerId?: string) => {
-    return certifications.find(
-      cert => cert.farmer_id === farmerId && cert.certification_type === "farmer"
-    );
-  };
-
-  const getProductCertification = (productId: string) => {
-    return certifications.find(
-      cert => cert.product_id === productId && cert.certification_type === "product"
-    );
-  };
-
-  // Cart logic
-  const addToCart = (crop: Crop) => {
-    try {
-      let currentCart: Crop[] = JSON.parse(localStorage.getItem("merchant_cart") || "[]");
-      
-      // Prevent duplicate items (by id)
-      if (currentCart.find((item) => item.id === crop.id)) {
-        toast({
-          title: "Already in Cart",
-          description: `${crop.name} is already in your cart.`,
-        });
-        return;
-      }
-      
-      const updatedCart = [...currentCart, crop];
-      localStorage.setItem("merchant_cart", JSON.stringify(updatedCart));
-      updateCartCount();
-      
-      toast({
-        title: "Added to Cart",
-        description: `${crop.name} has been added to your cart.`,
-      });
-    } catch (error) {
-      console.error("Add to cart error:", error);
-      toast({
-        title: "Error",
-        description: "Failed to add item to cart.",
-      });
+    // Search filter
+    if (searchTerm) {
+      filtered = filtered.filter(product =>
+        product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        product.farmers.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        product.farmers.location.toLowerCase().includes(searchTerm.toLowerCase())
+      );
     }
+
+    // Organic filter
+    if (showOrganicOnly) {
+      filtered = filtered.filter(product => product.organic);
+    }
+
+    // Certified filter
+    if (showCertifiedOnly) {
+      const certifiedProductIds = new Set();
+      const certifiedFarmerIds = new Set();
+
+      // Get certified products and farmers
+      const { data: certifications } = await supabase
+        .from('certifications')
+        .select('farmer_id, product_id')
+        .eq('status', 'approved');
+
+      if (certifications) {
+        certifications.forEach(cert => {
+          if (cert.product_id) certifiedProductIds.add(cert.product_id);
+          if (cert.farmer_id) certifiedFarmerIds.add(cert.farmer_id);
+        });
+      }
+
+      filtered = filtered.filter(product =>
+        certifiedProductIds.has(product.id) || certifiedFarmerIds.has(product.farmer_id)
+      );
+    }
+
+    setFilteredProducts(filtered);
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-lg">Loading products...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-lg text-red-600">{error}</div>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-[#f5f3ea] flex flex-col items-stretch">
+    <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="flex items-center gap-2 justify-between px-4 py-3 bg-yellow-700 text-white rounded-b-2xl">
-        <div>
-          <div className="font-bold text-lg">Welcome, {merchant.name}</div>
-          <div className="text-xs">Location: {merchant.location}</div>
-        </div>
-        <div className="flex items-center gap-2">
-          <img
-            src={merchant.profileImg}
-            alt="Profile"
-            className="w-9 h-9 rounded-full border-2 border-white object-cover"
-          />
-        </div>
-      </div>
-
-      {/* Explore Crops Section */}
-      <section className="px-4 mt-6">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-base font-semibold text-green-900">
-            Available Farmer Crops
-          </h2>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-2 border-green-700 text-green-900"
-              onClick={() => setShowFilterOptions(!showFilterOptions)}
-            >
-              <Filter className="w-4 h-4" />
-              Filter
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-2 border-green-700 text-green-900"
-              onClick={fetchCrops}
-              disabled={loading}
-            >
-              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-              Refresh
-            </Button>
-            <Button
-              variant="outline"
-              className="gap-2 border-green-700 text-green-900 relative"
-              onClick={() => navigate("/cart")}
-              title="View Cart"
-            >
-              <ShoppingCart className="w-5 h-5 text-green-700" />
-              Cart
-              {cartCount > 0 && (
-                <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                  {cartCount}
-                </span>
-              )}
-            </Button>
-          </div>
-        </div>
-
-        {/* Filter Options */}
-        {showFilterOptions && (
-          <div className="mb-4 p-4 bg-white rounded-lg shadow-sm">
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="certified-only"
-                checked={showCertifiedOnly}
-                onCheckedChange={setShowCertifiedOnly}
-              />
-              <label
-                htmlFor="certified-only"
-                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-              >
-                Show only certified farmers/products
-              </label>
-            </div>
-          </div>
-        )}
-        
-        {loading ? (
-          <div className="text-gray-500 p-10 text-center flex flex-col items-center gap-2">
-            <RefreshCw className="w-8 h-8 animate-spin text-green-700" />
-            Loading crops...
-          </div>
-        ) : filteredCrops.length === 0 ? (
-          <div className="text-gray-400 p-10 text-center bg-white rounded-xl">
-            <div className="flex flex-col items-center gap-3">
-              <Image className="w-16 h-16 text-gray-300" />
-              <div>
-                <p className="text-lg font-medium">
-                  {showCertifiedOnly ? "No certified crops available" : "No crops available"}
-                </p>
-                <p className="text-sm">
-                  {showCertifiedOnly 
-                    ? "Try removing the certification filter or check back later" 
-                    : "Check back later or refresh to see new uploads"
-                  }
-                </p>
-              </div>
-              <Button onClick={fetchCrops} variant="outline" className="mt-2">
-                Refresh
+      <div className="bg-white shadow-sm border-b">
+        <div className="max-w-7xl mx-auto px-4 py-4">
+          <div className="flex items-center justify-between">
+            <h1 className="text-2xl font-bold text-gray-900">Farm Bridge Marketplace</h1>
+            <div className="flex items-center gap-4">
+              <Button variant="outline" size="sm">
+                <ShoppingCart className="w-4 h-4 mr-1" />
+                Cart (0)
+              </Button>
+              <Button variant="outline" size="sm">
+                <User className="w-4 h-4 mr-1" />
+                Profile
               </Button>
             </div>
           </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
-            {filteredCrops.map((crop) => {
-              const farmerCertification = getFarmerCertification(crop.farmer_id);
-              const productCertification = getProductCertification(crop.id);
-              
-              return (
-                <div key={crop.id} className="bg-white rounded-xl shadow-md flex flex-col hover:shadow-lg transition-shadow">
-                  <div className="w-full h-32 bg-gray-100 flex items-center justify-center rounded-t-xl overflow-hidden">
-                    {crop.image ? (
-                      <img
-                        src={crop.image}
-                        alt={crop.name}
-                        className="object-cover w-full h-full"
-                        onError={(e) => {
-                          e.currentTarget.style.display = 'none';
-                          e.currentTarget.nextElementSibling?.classList.remove('hidden');
-                        }}
-                      />
-                    ) : null}
-                    <div className={`${crop.image ? 'hidden' : ''} flex items-center justify-center w-full h-full`}>
-                      <Image className="text-gray-400 w-12 h-12" />
-                    </div>
-                  </div>
-                  <div className="p-4 flex-1 flex flex-col gap-2">
-                    <div className="flex items-center justify-between">
-                      <div className="font-semibold text-green-900 text-lg">{crop.name}</div>
-                      {productCertification && (
-                        <CertificationBadge 
-                          certification={productCertification} 
-                          type="product" 
-                          size="sm"
-                        />
-                      )}
-                    </div>
-                    {crop.description && (
-                      <div className="text-sm text-gray-700 line-clamp-2">{crop.description}</div>
-                    )}
-                    <div className="flex gap-2 items-center text-xs">
-                      <span className="text-yellow-900 font-bold">
-                        ₹{crop.price_per_ton ?? crop.price}/ton
-                      </span>
-                      <span className="text-gray-600">
-                        Qty: {crop.quantity_tons ?? "-"} {crop.unit ?? "tons"}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <div className="text-green-700 text-xs">
-                        Farmer: {crop.farmer_name ?? "N/A"}
-                      </div>
-                      {farmerCertification && (
-                        <CertificationBadge 
-                          certification={farmerCertification} 
-                          type="farmer" 
-                          size="sm"
-                        />
-                      )}
-                    </div>
-                  </div>
-                  <div className="px-4 pb-4">
-                    <Button
-                      className="w-full bg-green-700 text-white hover:bg-green-800"
-                      onClick={() => addToCart(crop)}
-                    >
-                      Add to Cart
-                    </Button>
-                  </div>
+        </div>
+      </div>
+
+      {/* Search and Filters */}
+      <div className="max-w-7xl mx-auto px-4 py-6">
+        <div className="flex flex-col sm:flex-row gap-4 mb-6">
+          <div className="flex-1">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+              <Input
+                placeholder="Search products, farmers, or locations..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+          </div>
+          <Button
+            variant="outline"
+            onClick={() => setShowFilters(!showFilters)}
+            className="flex items-center gap-2"
+          >
+            <Filter className="w-4 h-4" />
+            Filters
+          </Button>
+        </div>
+
+        {/* Filter Options */}
+        {showFilters && (
+          <Card className="mb-6">
+            <CardContent className="p-4">
+              <div className="flex flex-wrap gap-6">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="certified"
+                    checked={showCertifiedOnly}
+                    onCheckedChange={(checked) => setShowCertifiedOnly(checked === true)}
+                  />
+                  <label htmlFor="certified" className="text-sm font-medium flex items-center gap-1">
+                    <CheckCircle className="w-4 h-4 text-green-600" />
+                    Certified Only
+                  </label>
                 </div>
-              );
-            })}
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="organic"
+                    checked={showOrganicOnly}
+                    onCheckedChange={(checked) => setShowOrganicOnly(checked === true)}
+                  />
+                  <label htmlFor="organic" className="text-sm font-medium">
+                    Organic Only
+                  </label>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Results Summary */}
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-lg font-semibold">
+            {filteredProducts.length} Products Found
+          </h2>
+          {(showCertifiedOnly || showOrganicOnly || searchTerm) && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setSearchTerm("");
+                setShowCertifiedOnly(false);
+                setShowOrganicOnly(false);
+              }}
+            >
+              Clear Filters
+            </Button>
+          )}
+        </div>
+
+        {/* Products Grid */}
+        {filteredProducts.length > 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {filteredProducts.map((product) => (
+              <ProductCard key={product.id} product={product} />
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-12">
+            <div className="text-gray-500 text-lg mb-2">No products found</div>
+            <div className="text-gray-400">Try adjusting your search or filters</div>
           </div>
         )}
-      </section>
-
-      {/* Simple merchant nav */}
-      <nav className="fixed left-0 bottom-0 w-full bg-white border-t border-yellow-100 flex items-center justify-around py-2 z-30">
-        <button
-          className="flex flex-col items-center focus:outline-none"
-          onClick={() => navigate("/merchant/dashboard")}
-        >
-          <Home className="w-6 h-6 text-yellow-700" />
-          <span className="text-xs">Merchant Home</span>
-        </button>
-        <button
-          className="flex flex-col items-center focus:outline-none"
-          onClick={() => navigate("/orders")}
-        >
-          <ShoppingBag className="w-6 h-6 text-green-800" />
-          <span className="text-xs">Orders</span>
-        </button>
-        <button
-          className="flex flex-col items-center focus:outline-none relative"
-          onClick={() => navigate("/cart")}
-        >
-          <ShoppingCart className="w-6 h-6 text-green-700" />
-          <span className="text-xs">Cart</span>
-          {cartCount > 0 && (
-            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">
-              {cartCount}
-            </span>
-          )}
-        </button>
-      </nav>
-      <div className="h-16"></div>
+      </div>
     </div>
   );
 };

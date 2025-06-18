@@ -1,78 +1,123 @@
 
-import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 
 export interface Certification {
   id: string;
-  farmer_id?: string;
-  product_id?: string;
-  certification_type: "farmer" | "product";
+  certification_type: 'farmer' | 'product';
   certifying_authority: string;
   validity_period?: string;
   notes?: string;
-  status: string;
+  status: 'pending' | 'approved' | 'rejected' | 'expired';
+  approved_by?: string;
   approved_at?: string;
+  created_at: string;
+  updated_at: string;
+  farmer_id?: string;
+  product_id?: string;
 }
 
-export const useCertifications = (farmerIds?: string[], productIds?: string[]) => {
-  const [certifications, setCertifications] = useState<Certification[]>([]);
+export interface CertificationRequest extends Certification {
+  farmers?: {
+    name: string;
+    location: string;
+  };
+  products?: {
+    name: string;
+    description: string;
+  };
+}
+
+export const useFarmerCertification = (farmerId: string) => {
+  const [certification, setCertification] = useState<Certification | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchCertifications = async () => {
-      try {
-        let query = supabase
-          .from("certifications")
-          .select("*")
-          .eq("status", "approved");
+    const fetchCertification = async () => {
+      if (!farmerId) return;
+      
+      const { data } = await supabase
+        .from('certifications')
+        .select('*')
+        .eq('farmer_id', farmerId)
+        .eq('status', 'approved')
+        .maybeSingle();
 
-        // Filter by farmer IDs or product IDs if provided
-        if (farmerIds && farmerIds.length > 0) {
-          query = query.in("farmer_id", farmerIds);
-        }
-        
-        if (productIds && productIds.length > 0) {
-          query = query.in("product_id", productIds);
-        }
-
-        const { data, error } = await query;
-
-        if (error) {
-          console.error("Error fetching certifications:", error);
-          setCertifications([]);
-        } else {
-          setCertifications(data || []);
-        }
-      } catch (error) {
-        console.error("Fetch certifications error:", error);
-        setCertifications([]);
-      } finally {
-        setLoading(false);
+      if (data) {
+        setCertification({
+          ...data,
+          certification_type: data.certification_type as 'farmer' | 'product',
+          status: data.status as 'pending' | 'approved' | 'rejected' | 'expired'
+        });
       }
+      setLoading(false);
     };
 
-    fetchCertifications();
-  }, [farmerIds, productIds]);
+    fetchCertification();
+  }, [farmerId]);
 
-  return { certifications, loading };
+  return { certification, loading };
 };
 
-export const useFarmerCertification = (farmerId?: string) => {
-  const { certifications, loading } = useCertifications(farmerId ? [farmerId] : []);
-  
-  const farmerCertification = certifications.find(
-    cert => cert.farmer_id === farmerId && cert.certification_type === "farmer"
-  );
+export const useProductCertification = (productId: string) => {
+  const [certification, setCertification] = useState<Certification | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  return { certification: farmerCertification, loading };
+  useEffect(() => {
+    const fetchCertification = async () => {
+      if (!productId) return;
+      
+      const { data } = await supabase
+        .from('certifications')
+        .select('*')
+        .eq('product_id', productId)
+        .eq('status', 'approved')
+        .maybeSingle();
+
+      if (data) {
+        setCertification({
+          ...data,
+          certification_type: data.certification_type as 'farmer' | 'product',
+          status: data.status as 'pending' | 'approved' | 'rejected' | 'expired'
+        });
+      }
+      setLoading(false);
+    };
+
+    fetchCertification();
+  }, [productId]);
+
+  return { certification, loading };
 };
 
-export const useProductCertification = (productId?: string) => {
-  const { certifications, loading } = useCertifications([], productId ? [productId] : []);
-  
-  const productCertification = certifications.find(
-    cert => cert.product_id === productId && cert.certification_type === "product"
-  );
+export const useCertificationRequests = () => {
+  const [requests, setRequests] = useState<CertificationRequest[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  return { certification: productCertification, loading };
+  useEffect(() => {
+    const fetchRequests = async () => {
+      const { data } = await supabase
+        .from('certifications')
+        .select(`
+          *,
+          farmers(name, location),
+          products(name, description)
+        `)
+        .in('status', ['pending', 'approved', 'rejected']);
+
+      if (data) {
+        const typedData = data.map(item => ({
+          ...item,
+          certification_type: item.certification_type as 'farmer' | 'product',
+          status: item.status as 'pending' | 'approved' | 'rejected' | 'expired'
+        }));
+        setRequests(typedData);
+      }
+      setLoading(false);
+    };
+
+    fetchRequests();
+  }, []);
+
+  return { requests, loading, refetch: () => window.location.reload() };
 };

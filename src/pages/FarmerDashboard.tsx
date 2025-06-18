@@ -1,8 +1,8 @@
+
 import React, { useState } from "react";
 import {
   User,
   Settings,
-  Camera,
   Bell,
   Home,
   ShoppingBag,
@@ -12,7 +12,6 @@ import {
   Phone,
   CloudSun,
   ArrowRightLeft,
-  Wallet,
 } from "lucide-react";
 import ProductCard from "@/components/farmer/ProductCard";
 import UploadCropForm from "@/components/farmer/UploadCropForm";
@@ -23,7 +22,7 @@ import { useFarmerCertification } from "@/hooks/useCertifications";
 
 const FAKE_PRODUCTS = [
   {
-    image: "https://images.unsplash.com/photo-1502741338009-cac2772e18bc?w=300", // wheat field - new
+    image: "https://images.unsplash.com/photo-1502741338009-cac2772e18bc?w=300",
     name: "Wheat",
     quantity: "120 kg",
     price: "₹24/kg",
@@ -31,7 +30,7 @@ const FAKE_PRODUCTS = [
     quality: "Organic, A Grade",
   },
   {
-    image: "https://images.unsplash.com/photo-1465101046530-73398c7f28ca?w=300", // rice paddy - new
+    image: "https://images.unsplash.com/photo-1465101046530-73398c7f28ca?w=300",
     name: "Rice",
     quantity: "180 kg",
     price: "₹29/kg",
@@ -73,11 +72,10 @@ const FarmerDashboard = () => {
     name: "Ramu",
     location: "Kadapa",
     profileImg: "https://randomuser.me/api/portraits/men/36.jpg",
-    id: "farmer-123", // Mock farmer ID for demonstration
+    id: "farmer-123",
   };
   const [crops, setCrops] = useState(FAKE_PRODUCTS);
 
-  // Get farmer certification
   const { certification: farmerCertification } = useFarmerCertification(farmer.id);
 
   const handleCropAdded = (crop) => {
@@ -90,7 +88,6 @@ const FarmerDashboard = () => {
         price: crop.price,
         status: "Available",
         quality: crop.quality,
-        // removed video
       },
     ]);
   };
@@ -193,7 +190,6 @@ const FarmerDashboard = () => {
           </div>
           <div className="flex flex-col items-end">
             <div className="flex items-center gap-1">
-              <Wallet className="w-5 h-5 text-green-700" />
               <span className="text-sm">+₹800 Earned</span>
             </div>
             <Button
@@ -245,7 +241,7 @@ const FarmerDashboard = () => {
         </div>
       </section>
 
-      {/* Bottom Navigation Bar (fixed & working!) */}
+      {/* Bottom Navigation Bar */}
       <nav className="fixed left-0 bottom-0 w-full bg-white border-t border-green-100 flex items-center justify-around py-1 shadow z-30">
         <button
           className="flex flex-col items-center focus:outline-none"
