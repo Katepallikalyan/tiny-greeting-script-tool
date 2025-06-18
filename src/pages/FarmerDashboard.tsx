@@ -18,6 +18,8 @@ import ProductCard from "@/components/farmer/ProductCard";
 import UploadCropForm from "@/components/farmer/UploadCropForm";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
+import { CertificationBadge } from "@/components/ui/certification-badge";
+import { useFarmerCertification } from "@/hooks/useCertifications";
 
 const FAKE_PRODUCTS = [
   {
@@ -71,8 +73,12 @@ const FarmerDashboard = () => {
     name: "Ramu",
     location: "Kadapa",
     profileImg: "https://randomuser.me/api/portraits/men/36.jpg",
+    id: "farmer-123", // Mock farmer ID for demonstration
   };
   const [crops, setCrops] = useState(FAKE_PRODUCTS);
+
+  // Get farmer certification
+  const { certification: farmerCertification } = useFarmerCertification(farmer.id);
 
   const handleCropAdded = (crop) => {
     setCrops((prev) => [
@@ -94,7 +100,16 @@ const FarmerDashboard = () => {
       {/* Header */}
       <div className="flex items-center gap-2 justify-between px-4 py-3 bg-green-700 text-white rounded-b-2xl">
         <div>
-          <div className="font-bold text-lg">Welcome, {farmer.name}</div>
+          <div className="flex items-center gap-2">
+            <div className="font-bold text-lg">Welcome, {farmer.name}</div>
+            {farmerCertification && (
+              <CertificationBadge 
+                certification={farmerCertification} 
+                type="farmer" 
+                size="sm"
+              />
+            )}
+          </div>
           <div className="text-xs">Location: {farmer.location}</div>
         </div>
         <div className="flex items-center gap-2">

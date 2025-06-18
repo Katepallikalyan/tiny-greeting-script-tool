@@ -1,10 +1,12 @@
-
 import React, { useEffect, useState } from "react";
-import { ShoppingBag, Home, ShoppingCart, Image, RefreshCw } from "lucide-react";
+import { ShoppingBag, Home, ShoppingCart, Image, RefreshCw, Filter } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { CertificationBadge } from "@/components/ui/certification-badge";
+import { useCertifications } from "@/hooks/useCertifications";
+import { Checkbox } from "@/components/ui/checkbox";
 
 // Minimal product type
 type Crop = {
@@ -31,6 +33,13 @@ const MerchantDashboard = () => {
   const [crops, setCrops] = useState<Crop[]>([]);
   const [loading, setLoading] = useState(true);
   const [cartCount, setCartCount] = useState(0);
+  const [showCertifiedOnly, setShowCertifiedOnly] = useState(false);
+  const [showFilterOptions, setShowFilterOptions] = useState(false);
+
+  // Get certifications for all farmers and products
+  const farmerIds = crops.map(crop => crop.farmer_id).filter(Boolean) as string[];
+  const productIds = crops.map(crop => crop.id);
+  const { certifications } = useCertifications(farmerIds, productIds);
 
   // Update cart count
   const updateCartCount = () => {
@@ -73,7 +82,7 @@ const MerchantDashboard = () => {
           description,
           farmer_id,
           in_stock,
-          farmers!inner(name)
+          farmers!inner(id, name)
         `)
         .eq("in_stock", true)
         .order("created_at", { ascending: false });
@@ -106,6 +115,32 @@ const MerchantDashboard = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Filter crops based on certification status
+  const filteredCrops = showCertifiedOnly 
+    ? crops.filter(crop => {
+        const hasFarmerCertification = certifications.some(
+          cert => cert.farmer_id === crop.farmer_id && cert.certification_type === "farmer"
+        );
+        const hasProductCertification = certifications.some(
+          cert => cert.product_id === crop.id && cert.certification_type === "product"
+        );
+        return hasFarmerCertification || hasProductCertification;
+      })
+    : crops;
+
+  // Helper function to get certifications for display
+  const getFarmerCertification = (farmerId?: string) => {
+    return certifications.find(
+      cert => cert.farmer_id === farmerId && cert.certification_type === "farmer"
+    );
+  };
+
+  const getProductCertification = (productId: string) => {
+    return certifications.find(
+      cert => cert.product_id === productId && cert.certification_type === "product"
+    );
   };
 
   // Cart logic
@@ -167,6 +202,15 @@ const MerchantDashboard = () => {
               variant="outline"
               size="sm"
               className="gap-2 border-green-700 text-green-900"
+              onClick={() => setShowFilterOptions(!showFilterOptions)}
+            >
+              <Filter className="w-4 h-4" />
+              Filter
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2 border-green-700 text-green-900"
               onClick={fetchCrops}
               disabled={loading}
             >
@@ -189,19 +233,45 @@ const MerchantDashboard = () => {
             </Button>
           </div>
         </div>
+
+        {/* Filter Options */}
+        {showFilterOptions && (
+          <div className="mb-4 p-4 bg-white rounded-lg shadow-sm">
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="certified-only"
+                checked={showCertifiedOnly}
+                onCheckedChange={setShowCertifiedOnly}
+              />
+              <label
+                htmlFor="certified-only"
+                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+              >
+                Show only certified farmers/products
+              </label>
+            </div>
+          </div>
+        )}
         
         {loading ? (
           <div className="text-gray-500 p-10 text-center flex flex-col items-center gap-2">
             <RefreshCw className="w-8 h-8 animate-spin text-green-700" />
             Loading crops...
           </div>
-        ) : crops.length === 0 ? (
+        ) : filteredCrops.length === 0 ? (
           <div className="text-gray-400 p-10 text-center bg-white rounded-xl">
             <div className="flex flex-col items-center gap-3">
               <Image className="w-16 h-16 text-gray-300" />
               <div>
-                <p className="text-lg font-medium">No crops available</p>
-                <p className="text-sm">Check back later or refresh to see new uploads</p>
+                <p className="text-lg font-medium">
+                  {showCertifiedOnly ? "No certified crops available" : "No crops available"}
+                </p>
+                <p className="text-sm">
+                  {showCertifiedOnly 
+                    ? "Try removing the certification filter or check back later" 
+                    : "Check back later or refresh to see new uploads"
+                  }
+                </p>
               </div>
               <Button onClick={fetchCrops} variant="outline" className="mt-2">
                 Refresh
@@ -210,51 +280,74 @@ const MerchantDashboard = () => {
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
-            {crops.map((crop) => (
-              <div key={crop.id} className="bg-white rounded-xl shadow-md flex flex-col hover:shadow-lg transition-shadow">
-                <div className="w-full h-32 bg-gray-100 flex items-center justify-center rounded-t-xl overflow-hidden">
-                  {crop.image ? (
-                    <img
-                      src={crop.image}
-                      alt={crop.name}
-                      className="object-cover w-full h-full"
-                      onError={(e) => {
-                        e.currentTarget.style.display = 'none';
-                        e.currentTarget.nextElementSibling?.classList.remove('hidden');
-                      }}
-                    />
-                  ) : null}
-                  <div className={`${crop.image ? 'hidden' : ''} flex items-center justify-center w-full h-full`}>
-                    <Image className="text-gray-400 w-12 h-12" />
+            {filteredCrops.map((crop) => {
+              const farmerCertification = getFarmerCertification(crop.farmer_id);
+              const productCertification = getProductCertification(crop.id);
+              
+              return (
+                <div key={crop.id} className="bg-white rounded-xl shadow-md flex flex-col hover:shadow-lg transition-shadow">
+                  <div className="w-full h-32 bg-gray-100 flex items-center justify-center rounded-t-xl overflow-hidden">
+                    {crop.image ? (
+                      <img
+                        src={crop.image}
+                        alt={crop.name}
+                        className="object-cover w-full h-full"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none';
+                          e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                        }}
+                      />
+                    ) : null}
+                    <div className={`${crop.image ? 'hidden' : ''} flex items-center justify-center w-full h-full`}>
+                      <Image className="text-gray-400 w-12 h-12" />
+                    </div>
+                  </div>
+                  <div className="p-4 flex-1 flex flex-col gap-2">
+                    <div className="flex items-center justify-between">
+                      <div className="font-semibold text-green-900 text-lg">{crop.name}</div>
+                      {productCertification && (
+                        <CertificationBadge 
+                          certification={productCertification} 
+                          type="product" 
+                          size="sm"
+                        />
+                      )}
+                    </div>
+                    {crop.description && (
+                      <div className="text-sm text-gray-700 line-clamp-2">{crop.description}</div>
+                    )}
+                    <div className="flex gap-2 items-center text-xs">
+                      <span className="text-yellow-900 font-bold">
+                        ₹{crop.price_per_ton ?? crop.price}/ton
+                      </span>
+                      <span className="text-gray-600">
+                        Qty: {crop.quantity_tons ?? "-"} {crop.unit ?? "tons"}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div className="text-green-700 text-xs">
+                        Farmer: {crop.farmer_name ?? "N/A"}
+                      </div>
+                      {farmerCertification && (
+                        <CertificationBadge 
+                          certification={farmerCertification} 
+                          type="farmer" 
+                          size="sm"
+                        />
+                      )}
+                    </div>
+                  </div>
+                  <div className="px-4 pb-4">
+                    <Button
+                      className="w-full bg-green-700 text-white hover:bg-green-800"
+                      onClick={() => addToCart(crop)}
+                    >
+                      Add to Cart
+                    </Button>
                   </div>
                 </div>
-                <div className="p-4 flex-1 flex flex-col gap-2">
-                  <div className="font-semibold text-green-900 text-lg">{crop.name}</div>
-                  {crop.description && (
-                    <div className="text-sm text-gray-700 line-clamp-2">{crop.description}</div>
-                  )}
-                  <div className="flex gap-2 items-center text-xs">
-                    <span className="text-yellow-900 font-bold">
-                      ₹{crop.price_per_ton ?? crop.price}/ton
-                    </span>
-                    <span className="text-gray-600">
-                      Qty: {crop.quantity_tons ?? "-"} {crop.unit ?? "tons"}
-                    </span>
-                  </div>
-                  <div className="text-green-700 text-xs">
-                    Farmer: {crop.farmer_name ?? "N/A"}
-                  </div>
-                </div>
-                <div className="px-4 pb-4">
-                  <Button
-                    className="w-full bg-green-700 text-white hover:bg-green-800"
-                    onClick={() => addToCart(crop)}
-                  >
-                    Add to Cart
-                  </Button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </section>

@@ -88,6 +88,73 @@ export type Database = {
         }
         Relationships: []
       }
+      certifications: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          certification_type: string
+          certifying_authority: string
+          created_at: string
+          farmer_id: string | null
+          id: string
+          notes: string | null
+          product_id: string | null
+          status: string
+          updated_at: string
+          validity_period: string | null
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          certification_type: string
+          certifying_authority: string
+          created_at?: string
+          farmer_id?: string | null
+          id?: string
+          notes?: string | null
+          product_id?: string | null
+          status?: string
+          updated_at?: string
+          validity_period?: string | null
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          certification_type?: string
+          certifying_authority?: string
+          created_at?: string
+          farmer_id?: string | null
+          id?: string
+          notes?: string | null
+          product_id?: string | null
+          status?: string
+          updated_at?: string
+          validity_period?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "certifications_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "certifications_farmer_id_fkey"
+            columns: ["farmer_id"]
+            isOneToOne: false
+            referencedRelation: "farmers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "certifications_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       farmers: {
         Row: {
           contact_email: string | null
