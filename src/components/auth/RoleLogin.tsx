@@ -64,7 +64,7 @@ const RoleLogin = () => {
           password,
           options: {
             data: { role },
-            emailRedirectTo: `${window.location.origin}/FARMBRIDGE`
+            emailRedirectTo: `${window.location.origin}/`
           },
         });
         if (error) {
